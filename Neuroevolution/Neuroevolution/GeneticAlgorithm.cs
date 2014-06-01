@@ -17,7 +17,11 @@ public class GeneticAlgorithm
 
         //Select parents
         if (selection == Selection.Roulette)
-            parents = RouletteSelect(genes, fitness);
+            parents = SelectionRoulette(genes, fitness);
+        else if (selection == Selection.Tournament)
+            parents = SelectionTournament(genes, fitness, 5);
+        else if (selection == Selection.Truncate)
+            parents = SelectionTruncate(genes, fitness, 0.25f);
         else
             parents = genes;
 
@@ -34,8 +38,11 @@ public class GeneticAlgorithm
             children = MutateRandom(children, mutationRate);
         else if (mutation == Mutation.Uniform)
             children = MutateUniform(children, mutationRate);
+        else if (mutation == Mutation.Gaussian)
+            children = MutateGaussian(children, mutationRate);
     }
 
+    #region initialize
     /****************************
     * Initializing a population *
     ****************************/
@@ -59,12 +66,15 @@ public class GeneticAlgorithm
         return randomGenes;
     }
 
+    #endregion
+
+    #region selection
     /********************
     * Selection Methods *
     ********************/
 
     //Roulette selection
-    static double[][] RouletteSelect(double[][] genes, int[] fitness)
+    static double[][] SelectionRoulette(double[][] genes, int[] fitness)
     {
         Random random = new Random();
         int totalFitness = 0;
@@ -105,6 +115,57 @@ public class GeneticAlgorithm
         return parents;
     }
 
+    //Tournament selection
+    static double[][] SelectionTournament(double[][] genes, int[] fitness, int tournamentSize)
+    {
+        Random random = new Random();
+        int populationSize = fitness.Length;
+        double[][] parents = new double[populationSize][];
+
+        for (int i = 0; i < populationSize; i++)
+        {
+            int[] parentIndex = new int[tournamentSize];
+            int bestIndex = 0;
+            for (int j = 0; j < tournamentSize; j++)
+            {
+                parentIndex[j] = random.Next(0, populationSize);
+                if (fitness[parentIndex[j]] > fitness[bestIndex])
+                    bestIndex = parentIndex[j];
+            }
+            parents[i] = genes[bestIndex];
+        }
+
+        return parents;
+    }
+
+    //Truncate selection
+    static double[][] SelectionTruncate(double[][] genes, int[] fitness, float truncatePercentage)
+    {
+        Random random = new Random();
+        int populationSize = fitness.Length;
+        int truncateSize = (int)(populationSize * truncatePercentage);
+        int[] parentIndex = new int[truncateSize];
+        int[] fitnessCopy = new int[populationSize];
+        double[][] genesCopy = new double[populationSize][];
+
+        fitness.CopyTo(fitnessCopy, 0);
+        genes.CopyTo(genesCopy, 0);
+
+        //Find best fitness
+        Array.Sort(fitnessCopy, genesCopy);
+
+        double[][] parents = new double[populationSize][];
+        for (int i = 0; i < populationSize; i++)
+        {
+            parents[i] = genesCopy[i % truncateSize];
+        }
+
+        return parents;
+    }
+
+    #endregion
+
+    #region crossover
     /********************
     * Crossover Methods *
     ********************/
@@ -178,6 +239,9 @@ public class GeneticAlgorithm
         return children;
     }
 
+    #endregion
+
+    #region mutation
     /*******************
     * Mutation Methods *
     *******************/
@@ -229,24 +293,58 @@ public class GeneticAlgorithm
 
         return mutatedGenes;
     }
+
+    static double[][] MutateGaussian(double[][] genes, double rate)
+    {
+        Random random = new Random();
+        int populationSize = genes.Length;
+        int geneLength = genes[0].Length;
+        double[][] mutatedGenes = new double[populationSize][];
+
+        for (int i = 0; i < populationSize; i++)
+        {
+            for (int j = 0; j < geneLength; j++)
+            {
+                if (random.NextDouble() < rate)
+                {
+                    //Generate gaussian random number
+                    double rand1 = random.NextDouble();
+                    double rand2 = random.NextDouble();
+                    double gaussian = Math.Sqrt(-2.0 * Math.Log(rand1)) * Math.Sin((2.0 * Math.PI * rand2));
+
+                    mutatedGenes[i][j] = genes[i][j] + gaussian;
+                    mutatedGenes[i][j] = Math.Abs(mutatedGenes[i][j] % 1);
+                }
+                else
+                    mutatedGenes[i][j] = genes[i][j];
+            }
+        }
+
+        return mutatedGenes;
+    }
+
+    #endregion
 }
 
 public enum Selection
 {
     Roulette,
     Tournament,
-    Truncate
+    Truncate,
+    None
 }
 
 public enum Crossover
 {
     OnePoint,
-    TwoPoint
+    TwoPoint,
+    None
 }
 
 public enum Mutation
 {
     Random,
     Uniform,
-    Gaussian
+    Gaussian,
+    None
 }
